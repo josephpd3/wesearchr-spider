@@ -1,0 +1,1 @@
+# WeSearchr Bounty Spider
