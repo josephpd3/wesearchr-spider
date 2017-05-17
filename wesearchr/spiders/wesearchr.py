@@ -5,6 +5,8 @@ class WeSearchr(scrapy.Spider):
     '''WeSearchr Bounty Spider
 
     This spider will start at both the landing page and the discovery page and pull bounties from various categories.
+
+    Currently built off of the base Spider class, but can also be built with a more tooled, generic one such as the CrawlerSpider: https://docs.scrapy.org/en/latest/topics/spiders.html#crawlspider
     '''
 
     name = 'wesearchr'
