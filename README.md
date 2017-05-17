@@ -15,7 +15,7 @@ I highly recommend checking out [the starter tutorial](https://docs.scrapy.org/e
 
 The [Dublin Council Crawler](https://github.com/bstarling/town-council/tree/scrapy-proposal/council_crawler) is a really great example of using the `CrawlSpider` class as a basis. I believe this would be the best one to extend for this task, but I'm open to suggestions (@josephpd3).
 
-I also recommend checking out [the docs on Item Pipelines], since they're a pretty great abstraction for handling the items collected by the spider. There's a MongoDB example within there that could definitely be used here with a little tweaking.
+I also recommend checking out [the docs on Item Pipelines](https://docs.scrapy.org/en/latest/topics/item-pipeline.html), since they're a pretty great abstraction for handling the items collected by the spider. There's a MongoDB example within there that could definitely be used here with a little tweaking.
 
 ### Learning to Work with Scrapy Extraction
 Scrapy [comes with a shell that is pretty awesome](https://docs.scrapy.org/en/latest/topics/shell.html#topics-shell) for experimenting and determining what extraction commands to write to get what you want on specific pages.
