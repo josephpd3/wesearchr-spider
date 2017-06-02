@@ -1,5 +1,8 @@
+import requests
+import json
 import scrapy
 from wesearchr.items import Bounty
+
 
 class WeSearchr(scrapy.Spider):
     '''WeSearchr Bounty Spider
@@ -12,28 +15,43 @@ class WeSearchr(scrapy.Spider):
     name = 'wesearchr'
 
     def start_requests(self):
-        urls = [
-            'https://www.wesearchr.com/',
-            'https://www.wesearchr.com/discover'
-        ]
+       
+        discover = json.loads(requests.get('http://www.wesearchr.com/api/discover/newest?page=1').text)   
+        while discover:
+            for bounty in discover['data']:
+                url = 'https://www.wesearchr.com/bounties/' + bounty['slug']  
+                yield scrapy.Request(url, self.parse_bounty) 
+            new_page = discover['next_page_url']     
+            discover = json.loads(requests.get(new_page).text)
+            
 
-        for url in urls:
-            yield scrapy.Request(url=url, callback=self.collect_bounties)
-
-    def collect_bounties(self, response):
-        '''
-        This will grab links to bounties from given pages
-        and yield child requests for each.
-
-        Added based on the congress spider at: https://github.com/Data4Democracy/assemble/blob/master/congress/congress/spiders/congress.py
-
-        Using CrawlSpider instead of Spider for this class could remove the need for a link-collecting function like this.
-        '''
-        raise NotImplementedError
+    #def collect_bounties(self, response):
+        #start_requests should probably call this instead of directly calling parse_bounty
 
     def parse_bounty(self, response):
-        '''
-        This will parse an individual bounty page,
-        yielding the respective Bounty item for it
-        '''
-        raise NotImplementedError
+
+        title = response.xpath('//div[@class="row"]/h1/text()').extract_first()
+        goal = response.xpath('//div[@class="single-project-content"]/p/text()')[0].extract()
+        why = response.xpath('//div[@class="single-project-content"]/p/text()')[1].extract()
+        requirements = response.xpath('//div[@class="single-project-content"]/p/text()')[3].extract()
+        
+        #could be used to get time_rem, but might be more useful as deadline
+        deadline = response.xpath('normalize-space(//div[@class="bounty-data data-group deadline"])').extract()
+
+        item = Bounty(
+            url = 'unknown',
+            title=title,
+            min_bounty = 'unknown',
+            cur_bounty = 'unknown',
+            time_rem = deadline,
+            contributions ='unknown',
+            goal = goal,
+            why = why,
+            requirements = requirements,
+            updates = 'unknown',
+            content_links = 'unknown'
+        )
+
+        yield item
+      
+      
