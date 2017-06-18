@@ -44,9 +44,6 @@ class WeSearchr(scrapy.Spider):
                 break
             page_no += 1
 
-    def get_contributors(page_id)
-        contributors = json.loads(requests.get('https://www.wesearchr.com/api/bounties/' + page_id +'contributions?').text)
-
 
     def parse_bounty(self, response):
         """
