@@ -28,7 +28,6 @@ class WeSearchr(scrapy.Spider):
         discover = json.loads(requests.get('http://www.wesearchr.com/api/discover/editorsChoice').text)
         while discover:
             for bounty in discover['data']:
-                print(bounty)
                 # Since we're iterating over JSON blobs of these already,
                 # we can store some goodies while we're at it.
                 self.slug_to_summary_blob[bounty['slug']] = bounty
