@@ -43,6 +43,10 @@ class WeSearchr(scrapy.Spider):
     #def collect_bounties(self, response):
         #start_requests should probably call this instead of directly calling parse_bounty
 
+    def get_contributors(page_id)
+        contributors = json.loads(requests.get('https://www.wesearchr.com/api/bounties/' + page_id +'contributions?').text)
+
+
     def parse_bounty(self, response):
         """
         Parse a bounty page
