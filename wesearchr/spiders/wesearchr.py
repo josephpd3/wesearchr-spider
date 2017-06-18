@@ -4,6 +4,7 @@ import scrapy
 import re
 
 from wesearchr.items import Bounty
+from collections import defaultdict
 
 
 class WeSearchr(scrapy.Spider):
@@ -16,13 +17,28 @@ class WeSearchr(scrapy.Spider):
 
     name = 'wesearchr'
 
+    # A few dicts to hold info we can grab while iterating
+    # over slugs to get full bounty pages
+    slug_to_id = {}
+    # Just in case some bounties don't have a deadline
+    # --you never know!
+    slug_to_deadline = defaultdict(None)
+
     def start_requests(self):
-       
+        """
+        Start chain of requests from starting URLs
+        """
         discover = json.loads(requests.get('http://www.wesearchr.com/api/discover/tag/politics').text)
         while discover:
             for bounty in discover['data']:
-                url = 'https://www.wesearchr.com/bounties/' + bounty['slug']  
-                yield scrapy.Request(url, self.parse_bounty) 
+                # Since we're iterating over JSON blobs of these already,
+                # we can get some present goodies while we're at it.
+                self.slug_to_id[bounty['slug']] = bounty['id']
+                self.slug_to_deadline[bounty['slug']] = bounty['deadline']
+
+                url = 'https://www.wesearchr.com/bounties/' + bounty['slug']
+                yield scrapy.Request(url, self.parse_bounty)
+
             new_page = discover['next_page_url']     
             discover = json.loads(requests.get(new_page).text)
             
@@ -31,14 +47,17 @@ class WeSearchr(scrapy.Spider):
         #start_requests should probably call this instead of directly calling parse_bounty
 
     def parse_bounty(self, response):
+        """
+        Parse a bounty page
+        """
+        slug = response.url.split('/')[-1]
+        bounty_id = self.get_bounty_id(slug)
+        deadline = self.get_bounty_deadline(slug)
 
         title = response.xpath('//div[@class="row"]/h1/text()').extract_first()
         goal = response.xpath('//div[@class="single-project-content"]/p/text()')[0].extract()
         why = response.xpath('//div[@class="single-project-content"]/p/text()')[1].extract()
         requirements = response.xpath('//div[@class="single-project-content"]/p/text()')[3].extract()
-        
-        #could be used to get time_rem, but might be more useful as deadline
-        deadline = response.xpath('normalize-space(//div[@class="bounty-data data-group deadline"])').extract()
 
         snapshot = response.xpath('//div[@class="project-snapshot"]')
 
@@ -47,11 +66,12 @@ class WeSearchr(scrapy.Spider):
         cur_bounty = self.grab_raised_bounty(response)
 
         item = Bounty(
+            bounty_id=bounty_id,
             url=response.url,
             title=title,
             min_bounty=min_bounty,
             cur_bounty=cur_bounty,
-            time_rem=deadline,
+            deadline=deadline,
             contributions='unknown',
             goal=goal,
             why=why,
@@ -61,6 +81,18 @@ class WeSearchr(scrapy.Spider):
         )
 
         yield item
+
+    def get_bounty_id(self, slug):
+        """
+        Get the id of a bounty page given the slug
+        """
+        return self.slug_to_id[slug]
+
+    def get_bounty_deadline(self, slug):
+        """
+        Get the bounty deadline date given the slug
+        """
+        return self.slug_to_deadline[slug]
 
     def grab_raised_bounty(self, response):
         """

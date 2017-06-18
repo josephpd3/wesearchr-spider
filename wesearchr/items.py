@@ -13,6 +13,7 @@ class Bounty(scrapy.Item):
     Scraped WeSearchr Bounty
     """
     # General
+    bounty_id = scrapy.Field()
     url = scrapy.Field()
     title = scrapy.Field()
     status = scrapy.Field()
@@ -20,7 +21,7 @@ class Bounty(scrapy.Item):
     # Contributions
     min_bounty = scrapy.Field()
     cur_bounty = scrapy.Field()
-    time_rem = scrapy.Field()
+    deadline = scrapy.Field()
 
     # List of Actual Contributions
     contributions = scrapy.Field()
