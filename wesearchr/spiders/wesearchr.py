@@ -20,9 +20,7 @@ class WeSearchr(scrapy.Spider):
     # A few dicts to hold info we can grab while iterating
     # over slugs to get full bounty pages
     slug_to_id = {}
-    # Just in case some bounties don't have a deadline
-    # --you never know!
-    slug_to_deadline = defaultdict(None)
+    slug_to_deadline = {}
 
     def start_requests(self):
         """
@@ -34,7 +32,8 @@ class WeSearchr(scrapy.Spider):
                 # Since we're iterating over JSON blobs of these already,
                 # we can get some present goodies while we're at it.
                 self.slug_to_id[bounty['slug']] = bounty['id']
-                self.slug_to_deadline[bounty['slug']] = bounty['deadline']
+                # You never know if some wont have deadlines!
+                self.slug_to_deadline[bounty['slug']] = bounty.get('deadline', None)
 
                 url = 'https://www.wesearchr.com/bounties/' + bounty['slug']
                 yield scrapy.Request(url, self.parse_bounty)
