@@ -15,6 +15,7 @@ class Bounty(scrapy.Item):
     # General
     url = scrapy.Field()
     title = scrapy.Field()
+    status = scrapy.Field()
 
     # Contributions
     min_bounty = scrapy.Field()
