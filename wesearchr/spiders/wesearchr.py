@@ -64,6 +64,8 @@ class WeSearchr(scrapy.Spider):
         min_bounty = self.grab_min_bounty(response)
         cur_bounty = self.grab_raised_bounty(response)
 
+        contributions = self.get_contributions(bounty_id)
+
         item = Bounty(
             bounty_id=bounty_id,
             url=response.url,
@@ -71,7 +73,7 @@ class WeSearchr(scrapy.Spider):
             min_bounty=min_bounty,
             cur_bounty=cur_bounty,
             deadline=deadline,
-            contributions='unknown',
+            contributions=contributions,
             goal=goal,
             why=why,
             requirements=requirements,
@@ -92,6 +94,25 @@ class WeSearchr(scrapy.Spider):
         Get the bounty deadline date given the slug
         """
         return self.slug_to_deadline[slug]
+
+    def get_contributions(self, bounty_id):
+        """
+        Get contributions given bounty id
+        """
+        contributions = []
+        contrib_page_str = 'http://www.wesearchr.com/api/bounties/{}/contributions?page={}'
+        page_no = 1 # start off at square one...
+
+        # Get the first page
+        contrib_page = json.loads(requests.get(contrib_page_str.format(bounty_id, page_no)).text)
+
+        # Keep grabbing pages til it runs dry!
+        while contrib_page['next_page_url'] is not None:
+            contributions.extend(contrib_page['data'])
+            page_no += 1
+            contrib_page = json.loads(requests.get(contrib_page_str.format(bounty_id, page_no)).text)
+
+        return contributions
 
     def grab_raised_bounty(self, response):
         """
