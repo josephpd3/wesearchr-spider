@@ -8,9 +8,6 @@ from wesearchr.items import Bounty
 from json import JSONDecodeError
 
 
-logging.basicConfig(filename='log.log', level=logging.ERROR)
-
-
 class WeSearchr(scrapy.Spider):
     '''WeSearchr Bounty Spider
 
@@ -20,7 +17,6 @@ class WeSearchr(scrapy.Spider):
     '''
 
     name = 'wesearchr'
-    logger = logging.getLogger(__name__)
 
     # A dict to hold information we can glean from the
     # initial list of bounties gotten through requests
@@ -30,18 +26,23 @@ class WeSearchr(scrapy.Spider):
         """
         Start chain of requests from starting URLs
         """
-        discover = json.loads(requests.get('http://www.wesearchr.com/api/discover/editorsChoice').text)
+        discover_url = 'http://www.wesearchr.com/api/discover/newest?page={}'
+        page_no = 1
 
-        for bounty in discover['data']:
-            # Since we're iterating over JSON blobs of these already,
-            # we can store some goodies while we're at it.
-            self.slug_to_summary_blob[bounty['slug']] = bounty
+        while True:
+            discover = json.loads(requests.get(discover_url.format(page_no)).text)
 
-            url = 'https://www.wesearchr.com/bounties/' + bounty['slug']  
-            yield scrapy.Request(url, self.parse_bounty)
+            for bounty in discover['data']:
+                # Since we're iterating over JSON blobs of these already,
+                # we can store some goodies while we're at it.
+                self.slug_to_summary_blob[bounty['slug']] = bounty
 
-    #def collect_bounties(self, response):
-        #start_requests should probably call this instead of directly calling parse_bounty
+                url = 'https://www.wesearchr.com/bounties/' + bounty['slug']  
+                yield scrapy.Request(url, self.parse_bounty)
+
+            if discover['next_page_url'] is None:
+                break
+            page_no += 1
 
     def parse_bounty(self, response):
         """
@@ -117,22 +118,20 @@ class WeSearchr(scrapy.Spider):
         contrib_page_str = 'http://www.wesearchr.com/api/bounties/{}/contributions?page={}'
         page_no = 1 # start off at square one...
 
-        # Get the first page
-        try:
-            contrib_page = json.loads(requests.get(contrib_page_str.format(bounty_id, page_no)).text)
-        except JSONDecodeError:
-            # If no contributions result, return the empty list
-            return contributions
-
         # Keep grabbing pages til it runs dry!
-        while contrib_page['next_page_url'] is not None:
-            contributions.extend(contrib_page['data'])
-            page_no += 1
-
+        while True:
             try:
                 contrib_page = json.loads(requests.get(contrib_page_str.format(bounty_id, page_no)).text)
             except JSONDecodeError:
+                # If no contributions result, return the empty list
+                return contributions
+
+            # Add next page to our growing list...
+            contributions.extend(contrib_page['data'])
+
+            if contrib_page['next_page_url'] is None:
                 break
+            page_no += 1
 
         return contributions
 
