@@ -4,7 +4,7 @@ import scrapy
 import re
 
 from wesearchr.items import Bounty
-from collections import defaultdict
+from json import JSONDecodeError
 
 
 class WeSearchr(scrapy.Spider):
@@ -17,23 +17,21 @@ class WeSearchr(scrapy.Spider):
 
     name = 'wesearchr'
 
-    # A few dicts to hold info we can grab while iterating
-    # over slugs to get full bounty pages
-    slug_to_id = {}
-    slug_to_deadline = {}
+    # A dict to hold information we can glean from the
+    # initial list of bounties gotten through requests
+    slug_to_summary_blob = {}
 
     def start_requests(self):
         """
         Start chain of requests from starting URLs
         """
-        discover = json.loads(requests.get('http://www.wesearchr.com/api/discover/tag/politics').text)
+        discover = json.loads(requests.get('http://www.wesearchr.com/api/discover/editorsChoice').text)
         while discover:
             for bounty in discover['data']:
+                print(bounty)
                 # Since we're iterating over JSON blobs of these already,
-                # we can get some present goodies while we're at it.
-                self.slug_to_id[bounty['slug']] = bounty['id']
-                # You never know if some wont have deadlines!
-                self.slug_to_deadline[bounty['slug']] = bounty.get('deadline', None)
+                # we can store some goodies while we're at it.
+                self.slug_to_summary_blob[bounty['slug']] = bounty
 
                 url = 'https://www.wesearchr.com/bounties/' + bounty['slug']
                 yield scrapy.Request(url, self.parse_bounty)
@@ -52,6 +50,7 @@ class WeSearchr(scrapy.Spider):
         slug = response.url.split('/')[-1]
         bounty_id = self.get_bounty_id(slug)
         deadline = self.get_bounty_deadline(slug)
+        status = self.get_bounty_status(slug)
 
         title = response.xpath('//div[@class="row"]/h1/text()').extract_first()
         goal = response.xpath('//div[@class="single-project-content"]/p/text()')[0].extract()
@@ -65,11 +64,13 @@ class WeSearchr(scrapy.Spider):
         cur_bounty = self.grab_raised_bounty(response)
 
         contributions = self.get_contributions(bounty_id)
+        updates = self.get_updates(response)
 
         item = Bounty(
             bounty_id=bounty_id,
             url=response.url,
             title=title,
+            status=status,
             min_bounty=min_bounty,
             cur_bounty=cur_bounty,
             deadline=deadline,
@@ -77,7 +78,7 @@ class WeSearchr(scrapy.Spider):
             goal=goal,
             why=why,
             requirements=requirements,
-            updates='unknown',
+            updates=updates,
             content_links='unknown'
         )
 
@@ -87,13 +88,20 @@ class WeSearchr(scrapy.Spider):
         """
         Get the id of a bounty page given the slug
         """
-        return self.slug_to_id[slug]
+        return self.slug_to_summary_blob[slug]['id']
 
     def get_bounty_deadline(self, slug):
         """
         Get the bounty deadline date given the slug
         """
-        return self.slug_to_deadline[slug]
+        # You never know if some wont have deadlines!
+        return self.slug_to_summary_blob[slug].get('deadline', None)
+
+    def get_bounty_status(self, slug):
+        """
+        Get the bounty status given the slug
+        """
+        return self.slug_to_summary_blob[slug].get('status', None)
 
     def get_contributions(self, bounty_id):
         """
@@ -110,9 +118,47 @@ class WeSearchr(scrapy.Spider):
         while contrib_page['next_page_url'] is not None:
             contributions.extend(contrib_page['data'])
             page_no += 1
-            contrib_page = json.loads(requests.get(contrib_page_str.format(bounty_id, page_no)).text)
+
+            try:
+                contrib_page = json.loads(requests.get(contrib_page_str.format(bounty_id, page_no)).text)
+            except JSONDecodeError:
+                break
 
         return contributions
+
+    def get_updates(self, response):
+        """
+        Get updates on bounty
+        """
+        updates = []
+        # Make it easier to pull out dates from inline js
+        datestring_pat = 'moment\.utc\(\\\'([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})'
+
+        try:
+            updates_container = response.css('div.project-updates-top')[0]
+        except IndexError:
+            # If nothing results, no updates for this bounty
+            return None
+
+        # Now, the information for a single update lives
+        # in two adjacent divs, so we're gonna do some voodoo here
+        updates_child_divs = updates_container.xpath('.//div')
+        num_updates = int(len(updates_child_divs) / 2) # Floor it!
+
+        for idx in range(num_updates):
+            # Remember these are in pairs when indexing divs
+            date_block = updates_child_divs[idx * 2].extract()
+            # Pull out date from inline js
+            date = re.search(datestring_pat, date_block).groups()[0]
+            text = updates_child_divs[(idx * 2) + 1].xpath('.//p/text()').extract()[0]
+
+            # pop it on the list!
+            updates.append({
+                'date': date,
+                'text': text
+            })
+
+        return updates
 
     def grab_raised_bounty(self, response):
         """
