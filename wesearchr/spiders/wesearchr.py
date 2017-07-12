@@ -54,11 +54,10 @@ class WeSearchr(scrapy.Spider):
             bounty_id = self.get_bounty_id(slug)
             deadline = self.get_bounty_deadline(slug)
             status = self.get_bounty_status(slug)
-
             title = response.xpath('//div[@class="row"]/h1/text()').extract_first()
-            goal = response.xpath('//div[@class="single-project-content"]/p/text()')[0].extract()
-            why = response.xpath('//div[@class="single-project-content"]/p/text()')[1].extract()
-            requirements = response.xpath('//div[@class="single-project-content"]/p/text()')[3].extract()
+            why = self.get_bounty_description(response, 1)
+            goal = self.get_bounty_description(response, 0)
+            requirements = self.get_bounty_description(response, 2)
 
             # Get min and current bounty
             min_bounty = self.grab_min_bounty(response)
@@ -91,6 +90,14 @@ class WeSearchr(scrapy.Spider):
             # all the way up to this function
             self.logger.error(slug)
             self.logger.exception('message')
+
+    def get_bounty_why(self, response, index):
+        full_text = response.xpath('//div[@class="single-project-content"]')[index]
+        matched_text = ''
+        paragraphs = full_text.xpath('//p/text()')
+        for each in paragraphs
+            matched_text = matched_text + each.extract()
+        return matched_text
 
     def get_bounty_id(self, slug):
         """
