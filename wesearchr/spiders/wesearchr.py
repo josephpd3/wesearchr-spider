@@ -6,6 +6,11 @@ import logging
 
 from wesearchr.items import Bounty
 from json import JSONDecodeError
+from lxml import html
+
+from bs4 import BeautifulSoup
+from scrapy.utils.response import get_base_url
+from urllib.parse import urljoin
 
 
 class WeSearchr(scrapy.Spider):
@@ -49,6 +54,8 @@ class WeSearchr(scrapy.Spider):
         """
         Parse a bounty page
         """
+        self.base_url = get_base_url(response)
+
         try:
             slug = response.url.split('/')[-1]
             bounty_id = self.get_bounty_id(slug)
@@ -56,16 +63,16 @@ class WeSearchr(scrapy.Spider):
             status = self.get_bounty_status(slug)
 
             title = response.xpath('//div[@class="row"]/h1/text()').extract_first()
-            goal = response.xpath('//div[@class="single-project-content"]/p/text()')[0].extract()
-            why = response.xpath('//div[@class="single-project-content"]/p/text()')[1].extract()
-            requirements = response.xpath('//div[@class="single-project-content"]/p/text()')[3].extract()
 
             # Get min and current bounty
             min_bounty = self.grab_min_bounty(response)
             cur_bounty = self.grab_raised_bounty(response)
 
+            about = self.get_about(response)
             contributions = self.get_contributions(bounty_id)
             updates = self.get_updates(response)
+
+            content_links = self.get_content_links(response)
 
             item = Bounty(
                 bounty_id=bounty_id,
@@ -76,11 +83,9 @@ class WeSearchr(scrapy.Spider):
                 cur_bounty=cur_bounty,
                 deadline=deadline,
                 contributions=contributions,
-                goal=goal,
-                why=why,
-                requirements=requirements,
+                about=about,
                 updates=updates,
-                content_links='unknown'
+                content_links=content_links
             )
 
             yield item
@@ -91,6 +96,62 @@ class WeSearchr(scrapy.Spider):
             # all the way up to this function
             self.logger.error(slug)
             self.logger.exception('message')
+
+    def get_about(self, response):
+        """
+        Get about fields: goal, why, requirements
+        """
+        goal = None
+        why = None
+        requirements = None
+
+        # grab about block from div
+        about_block = response.css('div.project-about')
+        about_block_sections = about_block.css('div.single-project-content')
+
+        # Don't grab sub-section if it doesn't exist
+        try:
+            goal = BeautifulSoup(about_block_sections[0].extract()) \
+                   .get_text() \
+                   .replace('\n', '')
+        except KeyError:
+            pass
+
+        # Don't grab sub-section if it doesn't exist
+        try:
+            why = BeautifulSoup(about_block_sections[1].extract()) \
+                  .get_text() \
+                  .replace('\n', '')
+        except KeyError:
+            pass
+
+        # Don't grab sub-section if it doesn't exist
+        try:
+            requirements = BeautifulSoup(about_block_sections[2].extract()) \
+                           .get_text() \
+                           .replace('\n', '')
+        except KeyError:
+            pass
+
+        return {
+            'goal': goal,
+            'why': why,
+            'requirements': requirements
+        }
+
+    def get_content_links(self, response):
+        """
+        Get the links to content from the body of the bounty
+        """
+        links_list = response.css('div.project').css('a').xpath('@href').extract()
+        fully_qualified_links = []
+
+        # Complete a link to be fully-qualified if it is relative, otherwise leave it
+        for link in links_list:
+            fql = urljoin(self.base_url, link) if link.startswith('/') else link
+            fully_qualified_links.append(fql)
+
+        return list(set(fully_qualified_links))
 
     def get_bounty_id(self, slug):
         """
