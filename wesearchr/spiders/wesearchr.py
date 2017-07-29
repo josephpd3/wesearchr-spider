@@ -6,7 +6,6 @@ import logging
 
 from wesearchr.items import Bounty
 from json import JSONDecodeError
-from lxml import html
 
 from bs4 import BeautifulSoup
 from scrapy.utils.response import get_base_url
