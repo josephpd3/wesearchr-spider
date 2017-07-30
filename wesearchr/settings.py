@@ -9,11 +9,23 @@
 #     http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 #     http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
 
+# Wesearch Spider Specific Settings
+# - - - - - - - - - - - - - - - - -
+
+# Pause between consecutive requests to the contributions page endpoint
+# - Increase this from zero to make the spider less aggressive with requests
+CONTRIB_PAUSE = 0.0
+
+# Set log file destination and minimum displayed log level
+LOG_FILE = 'spider.log'
+LOG_LEVEL = 'INFO'
+
+# Scrapy General Settings
+# - - - - - - - - - - - - - - - - -
 BOT_NAME = 'wesearchr'
 
 SPIDER_MODULES = ['wesearchr.spiders']
 NEWSPIDER_MODULE = 'wesearchr.spiders'
-
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'wesearchr (+http://www.yourdomain.com)'

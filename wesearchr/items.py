@@ -27,9 +27,7 @@ class Bounty(scrapy.Item):
     contributions = scrapy.Field()
 
     # About - Text Fields, may contain links
-    goal = scrapy.Field()
-    why = scrapy.Field()
-    requirements = scrapy.Field()
+    about = scrapy.Field()
 
     # List of Updates
     updates = scrapy.Field()
