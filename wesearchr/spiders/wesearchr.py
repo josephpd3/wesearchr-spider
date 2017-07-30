@@ -3,6 +3,9 @@ import json
 import scrapy
 import re
 import logging
+import time
+
+import wesearchr.settings as settings
 
 from wesearchr.items import Bounty
 from json import JSONDecodeError
@@ -30,7 +33,7 @@ class WeSearchr(scrapy.Spider):
         """
         Start chain of requests from starting URLs
         """
-        discover_url = 'http://www.wesearchr.com/api/discover/newest?page={}'
+        discover_url = 'https://www.wesearchr.com/api/discover/newest?page={}'
         page_no = 1
 
         while True:
@@ -110,7 +113,7 @@ class WeSearchr(scrapy.Spider):
 
         # Don't grab sub-section if it doesn't exist
         try:
-            goal = BeautifulSoup(about_block_sections[0].extract()) \
+            goal = BeautifulSoup(about_block_sections[0].extract(), 'html.parser') \
                    .get_text() \
                    .replace('\n', '')
         except KeyError:
@@ -118,7 +121,7 @@ class WeSearchr(scrapy.Spider):
 
         # Don't grab sub-section if it doesn't exist
         try:
-            why = BeautifulSoup(about_block_sections[1].extract()) \
+            why = BeautifulSoup(about_block_sections[1].extract(), 'html.parser') \
                   .get_text() \
                   .replace('\n', '')
         except KeyError:
@@ -126,7 +129,7 @@ class WeSearchr(scrapy.Spider):
 
         # Don't grab sub-section if it doesn't exist
         try:
-            requirements = BeautifulSoup(about_block_sections[2].extract()) \
+            requirements = BeautifulSoup(about_block_sections[2].extract(), 'html.parser') \
                            .get_text() \
                            .replace('\n', '')
         except KeyError:
@@ -176,13 +179,16 @@ class WeSearchr(scrapy.Spider):
         Get contributions given bounty id
         """
         contributions = []
-        contrib_page_str = 'http://www.wesearchr.com/api/bounties/{}/contributions?page={}'
+        contrib_page_str = 'https://www.wesearchr.com/api/bounties/{}/contributions?page={}'
         page_no = 1 # start off at square one...
 
         # Keep grabbing pages til it runs dry!
         while True:
             try:
-                contrib_page = json.loads(requests.get(contrib_page_str.format(bounty_id, page_no)).text)
+                # Pause between contributions page requests to reduce aggressiveness of crawl
+                time.sleep(settings.CONTRIB_PAUSE)
+                page_request = requests.get(contrib_page_str.format(bounty_id, page_no)).text
+                contrib_page = json.loads(page_request)
             except JSONDecodeError:
                 # If no contributions result, return the empty list
                 return contributions
